@@ -1,0 +1,12 @@
+.idea/
+.vscode/
+target/
+*.iws
+*.iml
+*.ipr
+.bloop/
+.bsp
+.metals
+.sbtopts
+null/
+metals.sbt
