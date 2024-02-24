@@ -66,6 +66,12 @@ jobs:
           java-version: 11
           check-latest: true
 
+      - name: Initialise Test Environment
+        uses: isbang/compose-action@v1.5.1
+        with:
+          compose-file: "./docker-compose.yml"
+          up-flags: "--build"
+
       - name: Generate Coverage Reports
         run: sbt clean coverage "test" "coverageReport"
 
