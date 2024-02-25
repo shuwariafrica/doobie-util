@@ -1,5 +1,5 @@
 val libraries = new {
-  final val scalaVersion = "3.3.1"
+  final val scalaVersion = "3.4.0"
   val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC5"
   val `doobie-munit` = "org.tpolecat" %% "doobie-munit" % "1.0.0-RC5"
   val munit = "org.scalameta" %% "munit" % "1.0.0-M11"
