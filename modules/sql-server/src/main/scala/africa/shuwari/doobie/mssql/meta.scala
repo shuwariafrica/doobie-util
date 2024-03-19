@@ -24,7 +24,6 @@ import microsoft.sql.DateTimeOffset
 
 import java.sql.PreparedStatement
 import java.sql.ResultSet
-import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -72,7 +71,7 @@ trait MetaInstances:
       new UUID(fromBytes(convertMostSignificantBits(v.slice(0, 8))), fromBytes(v.slice(8, 16)))
 
     Meta.Advanced.one[UUID](
-      JdbcType.Char,
+      JdbcType.VarBinary,
       NonEmptyList.one("UNIQUEIDENTIFIER"),
       (resultSet, index) => toUUID(resultSet.getBytes(index)),
       (statement, index, value) => statement.setBytes(index, toByteArray(value)),
@@ -84,24 +83,19 @@ trait MetaInstances:
 
   given Meta[OffsetDateTime] =
     Meta.Advanced.one(
-      JdbcType.Timestamp,
+      JdbcType.MsSqlDateTimeOffset,
       NonEmptyList.one("DATETIMEOFFSET"),
-      (resultSet: ResultSet, index: Int) => resultSet.getObject(index, classOf[DateTimeOffset]).getOffsetDateTime,
-      (statement: PreparedStatement, index: Int, value: OffsetDateTime) => statement.setString(index, value.toString),
-      (resultSet: ResultSet, index: Int, value: OffsetDateTime) => resultSet.updateString(index, value.toString)
+      (resultSet: ResultSet, index: Int) => resultSet.getObject(index, classOf[OffsetDateTime]),
+      (statement: PreparedStatement, index: Int, value: OffsetDateTime) => statement.setObject(index, value),
+      (resultSet: ResultSet, index: Int, value: OffsetDateTime) => resultSet.updateObject(index, value)
     )
 
   given Meta[LocalDateTime] =
     Meta.Advanced.one(
       JdbcType.Timestamp,
       NonEmptyList.one("DATETIME2"),
-      (resultSet: ResultSet, index: Int) => resultSet.getTimestamp(index).toLocalDateTime,
-      // LocalDateTime.parse(resultSet.getString(index), time.formatter.dateTime2),
-      (statement: PreparedStatement, index: Int, value: LocalDateTime) =>
-        statement.setTimestamp(index, Timestamp.valueOf(value)),
-      //  statement.setString(index, value.format(time.formatter.dateTime2)),
-      (resultSet: ResultSet, index: Int, value: LocalDateTime) =>
-        resultSet.updateTimestamp(index, Timestamp.valueOf(value))
-      //  resultSet.updateString(index, value.format(time.formatter.dateTime2))
+      (resultSet: ResultSet, index: Int) => resultSet.getObject(index, classOf[LocalDateTime]),
+      (statement: PreparedStatement, index: Int, value: LocalDateTime) => statement.setObject(index, value),
+      (resultSet: ResultSet, index: Int, value: LocalDateTime) => resultSet.updateObject(index, value)
     )
 end MetaInstances

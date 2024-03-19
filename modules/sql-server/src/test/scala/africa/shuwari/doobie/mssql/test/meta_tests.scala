@@ -35,9 +35,9 @@ class MetaTests extends FunSuite:
 
   final val uuidString = "F228E288-C5D0-EE11-B29C-AC198E6E1C53"
   val uuid = UUID.fromString(uuidString)
-  final val offsetDateTimeString = "2024-02-21 16:30:07.2019148 +06:00"
+  final val offsetDateTimeString = "2024-02-21 16:30:07.201914800 +06:00"
   val offsetDateTime = OffsetDateTime.parse(offsetDateTimeString, formatter.datetimeoffset)
-  final val localDateTimeString = "2024-02-21 16:30:07.2019148"
+  final val localDateTimeString = "2024-02-21 16:30:07.201914800"
   val localDateTime = LocalDateTime.parse(localDateTimeString, formatter.dateTime2)
 
   override def beforeAll(): Unit =
@@ -52,10 +52,8 @@ class MetaTests extends FunSuite:
             value UNIQUEIDENTIFIER DEFAULT NEWSEQUENTIALID() NOT NULL
           );
          """.update.run.map(_ => ()).transact(database.defaultTransactor).unsafeRunSync()
-    ()
 
   override def afterAll(): Unit =
-    println("Teardown meta_test tables.")
     sql"""
           DROP TABLE [dbo].[meta_test_local_date_time];
           DROP TABLE [dbo].[meta_test_offset_date_time];
