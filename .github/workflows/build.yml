@@ -35,7 +35,7 @@ jobs:
           cache: sbt
 
       - name: Initialise Test Environment
-        uses: isbang/compose-action@v1.5.1
+        uses: isbang/compose-action@v2.0.0
         with:
           compose-file: "./docker-compose.yml"
           up-flags: "--build"
