@@ -3,7 +3,7 @@ val libraries = new {
   val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC5"
   val `doobie-munit` = "org.tpolecat" %% "doobie-munit" % "1.0.0-RC5"
   val munit = "org.scalameta" %% "munit" % "1.0.0-M11"
-  val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.6.1.jre11"
+  val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.6.4.jre11"
   val `scribe-slf4j` = "com.outr" %% "scribe-slf4j" % "3.13.2"
   val `zio-prelude` = "dev.zio" %% "zio-prelude" % "1.0.0-RC23"
 }
