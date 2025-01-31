@@ -1,11 +1,11 @@
 val libraries = new {
-  final val scalaVersion = "3.4.1"
-  val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC5"
-  val `doobie-munit` = "org.tpolecat" %% "doobie-munit" % "1.0.0-RC5"
-  val munit = "org.scalameta" %% "munit" % "1.0.0-M11"
-  val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.6.1.jre11"
-  val `scribe-slf4j` = "com.outr" %% "scribe-slf4j" % "3.13.2"
-  val `zio-prelude` = "dev.zio" %% "zio-prelude" % "1.0.0-RC23"
+  final val scalaVersion = "3.3.4"
+  val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC6"
+  val `doobie-munit` = "org.tpolecat" %% "doobie-munit" % "1.0.0-RC6"
+  val munit = "org.scalameta" %% "munit" % "1.1.0"
+  val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11"
+  val `scribe-slf4j` = "com.outr" %% "scribe-slf4j" % "3.16.0"
+  val `zio-prelude` = "dev.zio" %% "zio-prelude" % "1.0.0-RC37"
 }
 
 lazy val `doobie-util` =
@@ -123,6 +123,6 @@ def pgpSettings: List[Setting[?]] = List(
   usePgpKeyHex(System.getenv("SIGNING_KEY_ID"))
 )
 
-addCommandAlias("format", "scalafixAll; scalafmtAll; scalafmtSbt; headerCreateAll")
+addCommandAlias("format", "scalafmtAll; scalafmtSbt; scalafixAll; headerCreateAll")
 
-addCommandAlias("staticCheck", "scalafixAll --check; scalafmtCheckAll; scalafmtSbtCheck; headerCheckAll")
+addCommandAlias("staticCheck", "scalafmtCheckAll; scalafmtSbtCheck; scalafixAll --check; headerCheckAll")
