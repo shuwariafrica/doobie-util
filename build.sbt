@@ -1,6 +1,6 @@
 val libraries = new {
   final val scalaVersion = "3.3.5"
-  val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC6"
+  val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC7"
   val `doobie-munit` = "org.tpolecat" %% "doobie-munit" % "1.0.0-RC6"
   val munit = "org.scalameta" %% "munit" % "1.1.0"
   val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11"
