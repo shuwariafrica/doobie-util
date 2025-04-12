@@ -1,10 +1,11 @@
 val libraries = new {
   final val scalaVersion = "3.3.5"
-  val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC6"
-  val `doobie-munit` = "org.tpolecat" %% "doobie-munit" % "1.0.0-RC6"
+  val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC8"
+  val `doobie-munit` = `doobie-core`(_.withName("doobie-munit"))
   val munit = "org.scalameta" %% "munit" % "1.1.0"
   val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11"
-  val `scribe-slf4j` = "com.outr" %% "scribe-slf4j" % "3.16.0"
+  val `scribe-slf4j` = "com.outr" %% "scribe-slf4j" % "3.16.1"
+  val zio = "dev.zio" %% "zio" % "2.1.17"
   val `zio-prelude` = "dev.zio" %% "zio-prelude" % "1.0.0-RC39"
 }
 
@@ -26,6 +27,7 @@ lazy val `doobie-zio-prelude` =
     .settings(
       libraryDependencies ++= List(
         libraries.`doobie-core`,
+        libraries.zio,
         libraries.`zio-prelude`,
         libraries.`mssql-jdbc` % Test,
         libraries.`scribe-slf4j` % Test
@@ -37,7 +39,7 @@ lazy val `doobie-sql-server` =
     .in(file("modules/sql-server"))
     .settings(unitTestSettings)
     .settings(publishSettings)
-    .settings(tpolecatExcludeOptions += africa.shuwari.sbt.ScalaCompilerOptions.explicitNulls)
+    .settings(ScalaCompiler.compilerOptions := ScalaCompiler.compilerOptions.value.filterNot(_ ==  africa.shuwari.sbt.ScalaCompilerOptions.explicitNulls))
     .dependsOn(`doobie-util-test` % Test)
     .settings(
       libraryDependencies ++= List(
@@ -56,7 +58,6 @@ lazy val `doobie-util-test` =
 
 inThisBuild(
   List(
-    Keys.version := VersionPlugin.versionSetting.value,
     scalaVersion := crossScalaVersions.value.head,
     crossScalaVersions := List(libraries.scalaVersion),
     organization := "africa.shuwari",
@@ -103,7 +104,7 @@ def publishSettings: List[Setting[?]] = publishCredentials +: pgpSettings ++: Li
     "Specification-Version" -> Keys.version.value,
     "Specification-Vendor" -> organizationName.value,
     "Implementation-Title" -> name.value,
-    "Implementation-Version" -> VersionPlugin.implementationVersionSetting.value,
+    "Implementation-Version" -> fullVersion.value,
     "Implementation-Vendor-Id" -> organization.value,
     "Implementation-Vendor" -> organizationName.value
   ),
