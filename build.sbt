@@ -1,6 +1,6 @@
 val libraries = new {
   final val scalaVersion = "3.3.5"
-  val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC8"
+  val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC11"
   val `doobie-munit` = `doobie-core`(_.withName("doobie-munit"))
   val munit = "org.scalameta" %% "munit" % "1.1.0"
   val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11"
@@ -39,7 +39,8 @@ lazy val `doobie-sql-server` =
     .in(file("modules/sql-server"))
     .settings(unitTestSettings)
     .settings(publishSettings)
-    .settings(ScalaCompiler.compilerOptions := ScalaCompiler.compilerOptions.value.filterNot(_ ==  africa.shuwari.sbt.ScalaCompilerOptions.explicitNulls))
+    .settings(ScalaCompiler.compilerOptions := ScalaCompiler.compilerOptions.value.filterNot(
+      _ == africa.shuwari.sbt.ScalaCompilerOptions.explicitNulls))
     .dependsOn(`doobie-util-test` % Test)
     .settings(
       libraryDependencies ++= List(
