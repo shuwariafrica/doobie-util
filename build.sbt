@@ -4,7 +4,7 @@ val libraries = new {
   val `doobie-munit` = `doobie-core`(_.withName("doobie-munit"))
   val munit = "org.scalameta" %% "munit" % "1.1.1"
   val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11"
-  val `scribe-slf4j` = "com.outr" %% "scribe-slf4j" % "3.16.1"
+  val `scribe-slf4j` = "com.outr" %% "scribe-slf4j" % "3.17.0"
   val zio = "dev.zio" %% "zio" % "2.1.17"
   val `zio-prelude` = "dev.zio" %% "zio-prelude" % "1.0.0-RC42"
 }
