@@ -1,4 +1,4 @@
-name: "CI Build"
+name: "Integration Build"
 
 on:
   workflow_dispatch:
@@ -17,28 +17,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 11, 17, 21 ]
+        java: [ 17, 25 ]
     runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
+      - name: Install Java ${{ matrix.java }}
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
           check-latest: true
-          cache: sbt
-
-      - name: Initialise Test Environment
-        uses: isbang/compose-action@v2.0.0
+      
+      - name: Install sbt
+        uses: coursier/setup-action@v1
         with:
-          compose-file: "./docker-compose.yml"
-          up-flags: "--build"
+          apps: sbt
+
+      - name: Setup Coursier Cache
+        uses: coursier/cache-action@v7
 
       - name: Execute Unit Tests
         run: sbt "+test"
@@ -54,12 +55,12 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Install Java
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 11
@@ -71,9 +72,7 @@ jobs:
           gpg_private_key: ${{ secrets.OSS_PUBLISH_USER_SIGNING_KEY }}
           git_user_signingkey: true
           git_commit_gpgsign: true
-
-      - name: Update Signing Key Trust Level
-        run: echo -e "trust\n5\ny" | gpg --batch --no-tty --command-fd 0 --edit-key ${{ secrets.OSS_PUBLISH_USER_SIGNING_KEY_ID }}
+          trust_level: 5
 
       - name: Publish Projects
         run: sbt publishSigned sonatypeBundleRelease

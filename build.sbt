@@ -1,27 +1,70 @@
+inThisBuild(
+  List(
+    scalaVersion := crossScalaVersions.value.head,
+    crossScalaVersions := List(libraries.scalaVersion),
+    organization := "africa.shuwari",
+    description := "Simple utilities for use with Doobie JDBC layer for Scala.",
+    homepage := Some(url("https://github.com/shuwarifrica/ashtray")),
+    startYear := Some(2023),
+    semanticdbEnabled := true,
+    sonatypeCredentialHost := Sonatype.sonatypeCentralHost,
+    publishCredentials,
+    scmInfo := ScmInfo(
+      url("https://github.com/shuwariafrica/ashtray"),
+      "scm:git:https://github.com/shuwariafrica/ashtray.git",
+      Some("scm:git:git@github.com:shuwariafrica/ashtray.git")
+    ).some
+  ) ++ formattingSettings
+)
+
 val libraries = new {
-  final val scalaVersion = "3.3.5"
+  final val scalaVersion = "3.7.4"
   val `doobie-core` = "org.tpolecat" %% "doobie-core" % "1.0.0-RC11"
   val `doobie-munit` = `doobie-core`(_.withName("doobie-munit"))
-  val munit = "org.scalameta" %% "munit" % "1.1.1"
-  val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11"
+  val munit = "org.scalameta" %% "munit" % "1.2.1"
+  val `mssql-jdbc` = "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.2.jre11"
   val `scribe-slf4j` = "com.outr" %% "scribe-slf4j" % "3.17.0"
-  val zio = "dev.zio" %% "zio" % "2.1.17"
-  val `zio-prelude` = "dev.zio" %% "zio-prelude" % "1.0.0-RC42"
+  val zio = "dev.zio" %% "zio" % "2.1.23"
+  val `zio-prelude` = "dev.zio" %% "zio-prelude" % "1.0.0-RC44"
+  val `testcontainers-scala-munit` = "com.dimafeng" %% "testcontainers-scala-munit" % "0.44.0"
+  val `testcontainers-scala-mssqlserver` = `testcontainers-scala-munit`.withName("testcontainers-scala-mssqlserver")
 }
 
-lazy val `doobie-util` =
+val `ashtray-test` =
   project
-    .in(file("."))
-    .shuwariProject
+    .in(file("modules/test"))
     .notPublished
-    .apacheLicensed
-    .aggregate(`doobie-zio-prelude`, `doobie-sql-server`)
-    .settings(sonatypeProfileSetting)
+    .settings(
+      libraryDependencies ++= List(
+        libraries.`doobie-core`,
+        libraries.munit,
+        libraries.`testcontainers-scala-munit`,
+        libraries.`testcontainers-scala-mssqlserver`,
+        libraries.`mssql-jdbc`
+      )
+    )
 
-lazy val `doobie-zio-prelude` =
+val `ashtray-mssql` =
+  project
+    .in(file("modules/mssql"))
+    .settings(unitTestSettings)
+    .settings(publishSettings)
+    .settings(ScalaCompiler.compilerOptions := ScalaCompiler.compilerOptions.value.filterNot(
+      _ == africa.shuwari.sbt.ScalaCompilerOptions.explicitNulls))
+    .settings(ScalaCompiler.compilerOptions +=
+      africa.shuwari.sbt.ScalaCompilerOptions.options.advancedOption("check-macros"))
+    .dependsOn(`ashtray-test` % Test)
+    .settings(
+      libraryDependencies ++= List(
+        libraries.`doobie-core`,
+        libraries.`mssql-jdbc`,
+        libraries.`scribe-slf4j` % Test
+      ))
+
+val `ashtray-zio-prelude` =
   project
     .in(file("modules/zio-prelude"))
-    .dependsOn(`doobie-util-test` % Test)
+    .dependsOn(`ashtray-test` % Test)
     .settings(unitTestSettings)
     .settings(publishSettings)
     .settings(
@@ -32,53 +75,24 @@ lazy val `doobie-zio-prelude` =
         libraries.`mssql-jdbc` % Test,
         libraries.`scribe-slf4j` % Test
       ))
-    .dependsOn(`doobie-sql-server` % Test)
+    .dependsOn(`ashtray-mssql` % Test)
 
-lazy val `doobie-sql-server` =
+val `ashtray` =
   project
-    .in(file("modules/sql-server"))
-    .settings(unitTestSettings)
-    .settings(publishSettings)
-    .settings(ScalaCompiler.compilerOptions := ScalaCompiler.compilerOptions.value.filterNot(
-      _ == africa.shuwari.sbt.ScalaCompilerOptions.explicitNulls))
-    .dependsOn(`doobie-util-test` % Test)
-    .settings(
-      libraryDependencies ++= List(
-        libraries.`doobie-core`,
-        libraries.`mssql-jdbc`,
-        libraries.`scribe-slf4j` % Test
-      ))
-
-lazy val `doobie-util-test` =
-  project
-    .in(file("modules/test"))
+    .in(file("."))
+    .shuwariProject
     .notPublished
-    .settings(
-      libraryDependencies ++= List(libraries.`doobie-core`)
-    )
+    .apacheLicensed
+    .aggregate(`ashtray-zio-prelude`, `ashtray-mssql`)
+    .settings(sonatypeProfileSetting)
 
-inThisBuild(
-  List(
-    scalaVersion := crossScalaVersions.value.head,
-    crossScalaVersions := List(libraries.scalaVersion),
-    organization := "africa.shuwari",
-    description := "Simple utilities for use with Doobie JDBC layer for Scala.",
-    homepage := Some(url("https://github.com/shuwarifrica/doobie-util")),
-    startYear := Some(2023),
-    semanticdbEnabled := true,
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    publishCredentials,
-    scmInfo := ScmInfo(
-      url("https://github.com/shuwariafrica/doobie-util"),
-      "scm:git:https://github.com/shuwariafrica/doobie-util.git",
-      Some("scm:git:git@github.com:shuwariafrica/doobie-util.git")
-    ).some
-  ) ++ formattingSettings
-)
 
 def unitTestSettings: List[Setting[?]] = List(
+  Test / fork := true, // Required for testcontainers graceful shutdown
   libraryDependencies ++= List(libraries.munit).map(_ % Test),
-  testFrameworks += new TestFramework("munit.Framework")
+  testFrameworks += new TestFramework("munit.Framework"),
+  Test / javaOptions += "-Djava.util.logging.config.file=" +
+    ((ThisBuild / baseDirectory).value / "modules" / "test" / "src" / "main" / "resources" / "logging.properties").absolutePath
 )
 
 def formattingSettings: List[Setting[?]] =
