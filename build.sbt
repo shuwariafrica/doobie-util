@@ -86,7 +86,6 @@ val `ashtray` =
     .aggregate(`ashtray-zio-prelude`, `ashtray-mssql`)
     .settings(sonatypeProfileSetting)
 
-
 def unitTestSettings: List[Setting[?]] = List(
   Test / fork := true, // Required for testcontainers graceful shutdown
   libraryDependencies ++= List(libraries.munit).map(_ % Test),

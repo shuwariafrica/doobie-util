@@ -59,7 +59,7 @@ class VersionTests extends FunSuite:
 
     val lsb = ((0x8000L | clockSeq.toLong) << 48) | node
     val id: IdentifierV1 = Identifier.Versioned.unsafeWrap[VersionV1](Identifier(msb, lsb))
-    assertEquals(id.timestamp100Nanos, timestamp100ns)
+    assertEquals(id.timestamp, timestamp100ns)
     assertEquals(id.clockSequence, clockSeq)
     assertEquals(id.node, node)
   }

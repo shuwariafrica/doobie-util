@@ -33,7 +33,7 @@ import cats.Show
   * mixed-endian wire format occurs only at the database boundary via
   * [[Identifier.toSqlServerBytes]] and [[Identifier.fromSqlServerBytes]].
   *
-  * This design ensures:
+  * This design enables:
   *   - Zero allocation for storage and simple accessors
   *   - Interoperability with `java.util.UUID` via [[Identifier.toJava]] / [[Identifier.fromJava]]
   *   - Correct semantics for version and variant bit extraction
@@ -315,9 +315,6 @@ object Identifier:
 
     /** Encode as SQL Server mixed-endian bytes suitable for `UNIQUEIDENTIFIER`. */
     def toSqlServerBytes: Array[Byte] = encodeSqlServer(id)
-
-    /** Canonical string form. */
-    def formatted: String = formatIdentifier(id)
   end extension
 
   extension (id: Versioned[Version.V7.type])
@@ -328,8 +325,8 @@ object Identifier:
     def instant: Instant = Instant.ofEpochMilli(timestampMillis)
 
   extension (id: Versioned[Version.V1.type])
-    /** Timestamp in 100-nanosecond ticks for a version 1 identifier. */
-    def timestamp100Nanos: Long =
+    /** Timestamp for a version 1 identifier (100-nanosecond intervals since 1582-10-15). */
+    def timestamp: Long =
       val msb = id._1
       val low = (msb >>> 32) & 0xffffffffL
       val mid = (msb >>> 16) & 0xffffL
