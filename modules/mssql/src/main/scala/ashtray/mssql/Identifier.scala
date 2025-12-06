@@ -33,7 +33,7 @@ import cats.Show
   * mixed-endian wire format occurs only at the database boundary via
   * [[Identifier.toSqlServerBytes]] and [[Identifier.fromSqlServerBytes]].
   *
-  * This design ensures:
+  * This design enables:
   *   - Zero allocation for storage and simple accessors
   *   - Interoperability with `java.util.UUID` via [[Identifier.toJava]] / [[Identifier.fromJava]]
   *   - Correct semantics for version and variant bit extraction
@@ -50,7 +50,7 @@ import cats.Show
   * import ashtray.mssql.*
   *
   * // Parse from string
-  * val parsed: Either[IdentifierError, Identifier] =
+  * val parsed: Either[AshtrayError, Identifier] =
   *   Identifier.parse("550e8400-e29b-41d4-a716-446655440000")
   *
   * // Compile-time literal
@@ -84,10 +84,10 @@ opaque type Identifier = (Long, Long)
   * val fromUuid = Identifier.fromJava(uuid)
   *
   * // From bytes (validates length)
-  * val fromBytes: Either[IdentifierError, Identifier] = Identifier.fromBytes(array)
+  * val fromBytes: Either[AshtrayError, Identifier] = Identifier.fromBytes(array)
   *
   * // From SQL Server wire bytes (swaps endianness)
-  * val fromWire: Either[IdentifierError, Identifier] = Identifier.fromSqlServerBytes(array)
+  * val fromWire: Either[AshtrayError, Identifier] = Identifier.fromSqlServerBytes(array)
   * }}}
   *
   * ==Parsing==
@@ -224,9 +224,9 @@ object Identifier:
   def fromJava(uuid: UUID): Identifier = (uuid.getMostSignificantBits, uuid.getLeastSignificantBits)
 
   /** Build an [[Identifier]] from a 16-byte big-endian array, validating length. */
-  def fromBytes(bytes: Array[Byte]): Either[IdentifierError, Identifier] =
-    if bytes == null then Left(IdentifierError.NullInput)
-    else if bytes.length != 16 then Left(IdentifierError.InvalidByteArrayLength(bytes.length, 16))
+  def fromBytes(bytes: Array[Byte]): Either[AshtrayError, Identifier] =
+    if bytes == null then Left(AshtrayError.IdentifierError.NullInput)
+    else if bytes.length != 16 then Left(AshtrayError.IdentifierError.InvalidByteArrayLength(bytes.length, 16))
     else
       val msb = readLong(bytes, 0)
       val lsb = readLong(bytes, 8)
@@ -238,9 +238,9 @@ object Identifier:
     case Left(err) => throw err // scalafix:ok
 
   /** Build from SQL Server mixed-endian bytes, validating length. */
-  def fromSqlServerBytes(bytes: Array[Byte]): Either[IdentifierError, Identifier] =
-    if bytes == null then Left(IdentifierError.NullInput)
-    else if bytes.length != 16 then Left(IdentifierError.InvalidByteArrayLength(bytes.length, 16))
+  def fromSqlServerBytes(bytes: Array[Byte]): Either[AshtrayError, Identifier] =
+    if bytes == null then Left(AshtrayError.IdentifierError.NullInput)
+    else if bytes.length != 16 then Left(AshtrayError.IdentifierError.InvalidByteArrayLength(bytes.length, 16))
     else
       val swapped = swapSqlServerBytes(bytes.clone())
       val msb = readLong(swapped, 0)
@@ -253,7 +253,7 @@ object Identifier:
     case Left(err) => throw err // scalafix:ok
 
   /** Parse a canonical UUID string into an [[Identifier]], returning a validation error on failure. */
-  def parse(value: String): Either[IdentifierError, Identifier] =
+  def parse(value: String): Either[AshtrayError, Identifier] =
     validateAndParseBits(value)
 
   /** Parse a canonical UUID string into an [[Identifier]], returning `None` on failure. */
@@ -315,9 +315,6 @@ object Identifier:
 
     /** Encode as SQL Server mixed-endian bytes suitable for `UNIQUEIDENTIFIER`. */
     def toSqlServerBytes: Array[Byte] = encodeSqlServer(id)
-
-    /** Canonical string form. */
-    def formatted: String = formatIdentifier(id)
   end extension
 
   extension (id: Versioned[Version.V7.type])
@@ -328,8 +325,8 @@ object Identifier:
     def instant: Instant = Instant.ofEpochMilli(timestampMillis)
 
   extension (id: Versioned[Version.V1.type])
-    /** Timestamp in 100-nanosecond ticks for a version 1 identifier. */
-    def timestamp100Nanos: Long =
+    /** Timestamp for a version 1 identifier (100-nanosecond intervals since 1582-10-15). */
+    def timestamp: Long =
       val msb = id._1
       val low = (msb >>> 32) & 0xffffffffL
       val mid = (msb >>> 16) & 0xffffL
@@ -343,15 +340,15 @@ object Identifier:
     def node: Long = id._2 & 0xffffffffffffL
 
   // === Internal: validation and formatting ===
-  private def validateAndParseBits(s: String): Either[IdentifierError, Identifier] =
-    if s == null then Left(IdentifierError.NullInput)
-    else if s.length != 36 then Left(IdentifierError.InvalidLength(s.length, 36))
+  private def validateAndParseBits(s: String): Either[AshtrayError, Identifier] =
+    if s == null then Left(AshtrayError.IdentifierError.NullInput)
+    else if s.length != 36 then Left(AshtrayError.IdentifierError.InvalidLength(s.length, 36))
     else if s.charAt(8) != '-' || s.charAt(13) != '-' || s.charAt(18) != '-' || s.charAt(23) != '-' then
-      Left(IdentifierError.InvalidFormat(s, "Missing or misplaced hyphens"))
+      Left(AshtrayError.IdentifierError.InvalidFormat(s, "Missing or misplaced hyphens"))
     else
       var msb = 0L
       var lsb = 0L
-      var error: IdentifierError | Null = null
+      var error: AshtrayError.IdentifierError | Null = null
 
       val (msb1, err1) = hexToBits(s, 0, 8, 0L, null)
       msb = msb1
@@ -384,13 +381,13 @@ object Identifier:
     startIdx: Int,
     endIdx: Int,
     acc: Long,
-    error: IdentifierError | Null): (Long, IdentifierError | Null) =
+    error: AshtrayError.IdentifierError | Null): (Long, AshtrayError.IdentifierError | Null) =
     var result = acc
     var err = error
     var i = startIdx
     while i < endIdx && (err eq null) do
       val n = hexToNibble(s.charAt(i))
-      if n < 0 then err = IdentifierError.InvalidCharacter(s.charAt(i), i, s)
+      if n < 0 then err = AshtrayError.IdentifierError.InvalidCharacter(s.charAt(i), i, s)
       else result = (result << 4) | n
       i += 1
     (result, err) // scalafix:ok

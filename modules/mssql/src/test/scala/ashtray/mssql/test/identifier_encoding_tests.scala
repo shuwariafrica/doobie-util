@@ -72,4 +72,34 @@ class IdentifierEncodingTests extends FunSuite:
     val round = Identifier.fromJava(javaUuid)
     assertEquals(Identifier.render(round), canonical)
   }
+
+  test("mostSignificantBits accessor returns correct value") {
+    val msb = 0x0011223344556677L
+    val lsb = 0x8899aabbccddeeffL
+    val id = Identifier(msb, lsb)
+    assertEquals(id.mostSignificant, msb)
+  }
+
+  test("leastSignificantBits accessor returns correct value") {
+    val msb = 0x0011223344556677L
+    val lsb = 0x8899aabbccddeeffL
+    val id = Identifier(msb, lsb)
+    assertEquals(id.leastSignificant, lsb)
+  }
+
+  test("Identifier.render produces canonical lowercase representation") {
+    assertEquals(Identifier.render(identifier), canonical)
+  }
+
+  test("Identifier Show typeclass produces canonical format") {
+    import cats.syntax.show.*
+    assertEquals(identifier.show, canonical)
+  }
+
+  test("Versioned[V] Show typeclass produces canonical format") {
+    import cats.syntax.show.*
+    import ashtray.mssql.idv4
+    val id = idv4"550e8400-e29b-41d4-a716-446655440000"
+    assertEquals(id.show, "550e8400-e29b-41d4-a716-446655440000")
+  }
 end IdentifierEncodingTests
