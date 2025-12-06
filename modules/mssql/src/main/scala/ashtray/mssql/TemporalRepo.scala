@@ -360,26 +360,28 @@ object TemporalRepo:
       (asOf(id, instant1), asOf(id, instant2)).flatMapN((v1, v2) => F.pure((v1, v2).mapN((_, _))))
 
     def restoreTo(id: ID, instant: Instant): F[Int] =
-      asOf(id, instant).flatMap {
-        case Some(historical) =>
-          // Extract column names from schema.columns Fragment
-          // This works for simple column lists like "Col1, Col2, Col3"
-          val columnNames = schema.columns.internals.sql.split(",").map(_.trim).toList
+      // Extract validated column names from schema - propagate error as value
+      schema.columnNames match
+        case Left(error) =>
+          // Lift validation error into F
+          F.raiseError(error)
+        case Right(columnNames) =>
+          asOf(id, instant).flatMap {
+            case Some(historical) =>
+              // Generate SET clause: "col1 = ?, col2 = ?, ..."
+              val setClause = columnNames.map(col => s"$col = ?").mkString(", ")
 
-          // Generate SET clause: "col1 = ?, col2 = ?, ..."
-          val setClause = columnNames.map(col => s"$col = ?").mkString(", ")
+              // Use Write[A].toFragment to properly bind entity values
+              val entityFragment = summon[Write[A]].toFragment(historical.entity, setClause)
 
-          // Use Write[A].toFragment to properly bind entity values
-          val entityFragment = summon[Write[A]].toFragment(historical.entity, setClause)
+              // Construct complete UPDATE statement
+              val updateQuery = Fragment.const(s"UPDATE ${schema.tableName} SET ") ++
+                entityFragment ++
+                Fragment.const(s" WHERE ${schema.idColumn} = ") ++ fr"$id"
 
-          // Construct complete UPDATE statement
-          val updateQuery = Fragment.const(s"UPDATE ${schema.tableName} SET ") ++
-            entityFragment ++
-            Fragment.const(s" WHERE ${schema.idColumn} = ") ++ fr"$id"
-
-          updateQuery.update.run.transact(xa)
-        case None => F.pure(0)
-      }
+              updateQuery.update.run.transact(xa)
+            case None => F.pure(0)
+          }
 
     def current(id: ID): F[Option[A]] =
       (fr"SELECT" ++ schema.columns ++ Fragment.const(

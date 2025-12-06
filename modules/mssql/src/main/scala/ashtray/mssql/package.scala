@@ -25,9 +25,20 @@ package ashtray
   *   - Literal helpers [[identifier_literal.idv1]], [[identifier_literal.idv4]],
   *     [[identifier_literal.idv7]] yield narrowed types at compile time.
   *   - [[TemporalVersioned]], [[TemporalCurrent]] for temporal table wrappers.
+  *   - [[IdentifierError]], [[TemporalSchemaError]], [[MetaError]] for error types.
   *   - Extension methods for `Transactor[F]` providing temporal repository derivation.
   */
 package object mssql extends MetaInstances:
+
+  // Error type aliases for convenience
+  type IdentifierError = AshtrayError.IdentifierError
+  val IdentifierError = AshtrayError.IdentifierError
+
+  type TemporalSchemaError = AshtrayError.TemporalSchemaError
+  val TemporalSchemaError = AshtrayError.TemporalSchemaError
+
+  type MetaError = AshtrayError.MetaError
+  val MetaError = AshtrayError.MetaError
 
   // Version type aliases for convenience
   type VersionV1 = Version.V1.type

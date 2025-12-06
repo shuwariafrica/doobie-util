@@ -87,6 +87,38 @@ trait TemporalSchema[ID, A]:
     */
   def columns: Fragment
 
+  /** Extract column names from the columns fragment.
+    *
+    * Performs basic validation that the fragment contains only a comma-separated list of
+    * identifiers without complex SQL constructs.
+    *
+    * @return Right(list of column names) or Left(validation error)
+    */
+  final def columnNames: Either[AshtrayError, List[String]] =
+    val sql = columns.internals.sql
+
+    // Basic validation: reject fragments containing SQL comments or string literals
+    if sql.contains("--") || sql.contains("/*") then Left(AshtrayError.TemporalSchemaError.SqlComment(sql))
+    else if sql.contains("'") || sql.contains("\"") then Left(AshtrayError.TemporalSchemaError.StringLiteral(sql))
+    else
+      // Split on comma and validate each token is a simple identifier
+      val names = sql.split(",").map(_.trim).toList
+
+      // Find first invalid name if any
+      val invalidName = names.find { name =>
+        name.isEmpty ||
+        name.toLowerCase.startsWith("select ") ||
+        name.toLowerCase.startsWith("from ") ||
+        name.toLowerCase.startsWith("where ") ||
+        name.contains("(") || name.contains(")")
+      }
+
+      invalidName match
+        case Some(name) if name.isEmpty => Left(AshtrayError.TemporalSchemaError.EmptyColumnName(sql))
+        case Some(name)                 => Left(AshtrayError.TemporalSchemaError.ComplexExpression(name, sql))
+        case None                       => Right(names)
+  end columnNames
+
   /** Period columns fragment. Inlined for hot query building.
     *
     * Generates: `ValidFrom, ValidTo`

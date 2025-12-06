@@ -35,7 +35,7 @@ object EmployeeId:
   
   // Construction
   def apply(id: Identifier): EmployeeId = id
-  def parse(s: String): Either[IdentifierError, EmployeeId] = 
+  def parse(s: String): Either[AshtrayError, EmployeeId] = 
     Identifier.parse(s)
 
 // Entity with system-versioned temporal support
@@ -87,6 +87,95 @@ Single import provides complete API surface:
 - Extension methods: `Transactor[F].temporal[ID, A]` for repository derivation
 - Compile-time literals: `id"..."`, `idv1"..."`, `idv4"..."`, `idv7"..."`
 - `Meta` instances for `Identifier`, `UUID`, `LocalDateTime`, `OffsetDateTime`
+
+---
+
+### Error Handling
+
+Any error encountered during operations will be returned via a unified `AshtrayError` sealed trait hierarchy. No operations throw exceptions as part of their normal API contract (except `Unsafe` variants, and Meta instances where doobie's contract expects exceptions).
+
+#### Unified Error ADT
+
+```scala
+sealed abstract class AshtrayError extends Exception with NoStackTrace
+
+// Three semantic branches:
+AshtrayError.IdentifierError    // Identifier parsing, validation, generation
+AshtrayError.TemporalSchemaError // Temporal schema validation  
+AshtrayError.MetaError          // Database interaction errors
+```
+
+**Type aliases** for convenience:
+```scala
+type IdentifierError = AshtrayError.IdentifierError
+type TemporalSchemaError = AshtrayError.TemporalSchemaError
+type MetaError = AshtrayError.MetaError
+```
+
+#### Error Cases
+
+**IdentifierError** (identifier parsing and validation):
+- `NullInput` — null value supplied where input required
+- `InvalidLength(actual, expected)` — string length mismatch
+- `InvalidFormat(input, reason)` — malformed UUID structure
+- `InvalidCharacter(char, position, input)` — non-hex character found
+- `InvalidByteArrayLength(actual, expected)` — byte array not 16 bytes
+- `InvalidBatchCount(count)` — non-positive batch size for generation
+
+**TemporalSchemaError** (schema validation):
+- `SqlComment(fragment)` — SQL comment detected in column list
+- `StringLiteral(fragment)` — string literal detected in column list
+- `EmptyColumnName(fragment)` — empty column name (consecutive commas)
+- `ComplexExpression(columnName, fragment)` — SQL expression detected instead of simple column name
+
+**MetaError** (database interaction):
+- `IdentifierDecodeFailure(cause: IdentifierError, columnIndex)` — failed to decode identifier from database with column context
+- `UnexpectedNull(columnIndex, columnType)` — NULL in non-nullable column
+- `JdbcFailure(operation, cause)` — wrapped JDBC exception
+
+#### Usage
+
+All parsing and validation operations return `Either[AshtrayError, A]`:
+
+```scala
+import ashtray.mssql.*
+
+// Parse returns unified error type
+val result: Either[AshtrayError, Identifier] = 
+  Identifier.parse("invalid-uuid")
+
+// Pattern match on specific error types
+result match
+  case Left(AshtrayError.IdentifierError.InvalidLength(actual, expected)) =>
+    println(s"Wrong length: expected $expected, got $actual")
+  case Left(AshtrayError.IdentifierError.InvalidFormat(input, reason)) =>
+    println(s"Malformed: $reason")
+  case Left(error) => 
+    println(s"Error: ${error.getMessage}")
+  case Right(id) => 
+    println(s"Parsed: $id")
+
+// Or use type alias for brevity
+result match
+  case Left(err: IdentifierError) => println(s"Identifier error: $err")
+  case Left(err: TemporalSchemaError) => println(s"Schema error: $err")
+  case Left(err: MetaError) => println(s"Database error: $err")
+  case Right(id) => println(s"Success: $id")
+```
+
+**Effect propagation** with cats-effect:
+```scala
+import cats.effect.IO
+import cats.syntax.all.*
+
+def processId(s: String): IO[Unit] = 
+  Identifier.parse(s).liftTo[IO].flatMap { id =>
+    // Work with validated identifier
+    IO.println(s"Valid ID: $id")
+  }
+```
+
+**CanEqual instances** provided for strict equality checking in Scala 3, enabling proper pattern matching and comparison of error values.
 
 ---
 
@@ -143,14 +232,14 @@ val batch: IO[Vector[IdentifierV7]] = generateBatch[IO, VersionV7](100)
 - V7: `Clock[F]` and `SecureRandom[F]` (timestamp + random bits)
 - V4: `SecureRandom[F]` only (fully random)
 
-`generateBatch` fails when count is non-positive, returning `F.raiseError(IdentifierError.InvalidBatchCount(count))`.
+`generateBatch` fails when count is non-positive, returning `F.raiseError(AshtrayError.IdentifierError.InvalidBatchCount(count))`.
 
 #### Parsing and version narrowing
 
 Runtime parsing returns untyped `Identifier`. Narrow to `Versioned[V]` to access version-specific extensions:
 
 ```scala
-val parsed: Either[IdentifierError, Identifier] =
+val parsed: Either[AshtrayError, Identifier] =
   Identifier.parse("019012f3-a456-7def-8901-234567890abc")
 
 // Safe narrowing with Option
@@ -164,16 +253,19 @@ val opt: Option[Identifier] = Identifier.parseOption("...")
 val unsafe: Identifier = Identifier.parseUnsafe("...")  // Throws on invalid input
 ```
 
-**Error cases** (`IdentifierError` ADT):
-- `NullInput` — null value supplied
-- `InvalidLength(actual, expected)` — string length mismatch
-- `InvalidFormat(input, reason)` — malformed structure
-- `InvalidCharacter(char, position, input)` — non-hex character
-- `InvalidByteArrayLength(actual, expected)` — byte array not 16 bytes
-- `InvalidBatchCount(count)` — non-positive batch size
+**Error cases** (`AshtrayError` unified ADT):
+- `AshtrayError.IdentifierError.NullInput` — null value supplied
+- `AshtrayError.IdentifierError.InvalidLength(actual, expected)` — string length mismatch
+- `AshtrayError.IdentifierError.InvalidFormat(input, reason)` — malformed structure
+- `AshtrayError.IdentifierError.InvalidCharacter(char, position, input)` — non-hex character
+- `AshtrayError.IdentifierError.InvalidByteArrayLength(actual, expected)` — byte array not 16 bytes
+- `AshtrayError.IdentifierError.InvalidBatchCount(count)` — non-positive batch size
+
+Type aliases available for convenience: `IdentifierError`, `TemporalSchemaError`, `MetaError`
 
 **Version-specific extensions**:
-- **V7**: `timestampMillis`, `timestamp` (as `java.time.Instant`)
+- **V7**: `timestampMillis` (as `Long`), `instant` (as `java.time.Instant`)
+- **V1**: `timestamp` (as `Long`, 100-nanosecond intervals since 1582-10-15), `clockSequence`, `node`
 - **V4**: No extensions (fully random, no extractable structure)
 
 #### Interop and byte encoding
@@ -188,8 +280,8 @@ val bytes: Array[Byte]    = untyped.toBytes          // RFC 9562 big-endian (16 
 val sqlBytes: Array[Byte] = untyped.toSqlServerBytes // SQL Server mixed-endian (16 bytes)
 
 // Parse from bytes (validates length)
-val fromBytes: Either[IdentifierError, Identifier] = Identifier.fromBytes(bytes)
-val fromSql: Either[IdentifierError, Identifier]   = Identifier.fromSqlServerBytes(sqlBytes)
+val fromBytes: Either[AshtrayError, Identifier] = Identifier.fromBytes(bytes)
+val fromSql: Either[AshtrayError, Identifier]   = Identifier.fromSqlServerBytes(sqlBytes)
 
 // Bit accessors
 val msb: Long = untyped.mostSignificant  // High 64 bits
@@ -263,7 +355,7 @@ object UserId:
   
   // Add domain-specific methods
   def apply(id: Identifier): UserId = id
-  def parse(s: String): Either[IdentifierError, UserId] = 
+  def parse(s: String): Either[AshtrayError, UserId] = 
     Identifier.parse(s)
 
 // Usage preserves type safety
@@ -324,6 +416,15 @@ given TemporalSchema[Identifier, Employee] = TemporalSchema(
 - `cols` — Doobie fragment listing entity columns in case class field order. **Excludes period columns**
 
 No naming conventions enforced. Use your existing schema.
+
+**Schema validation**: Column lists are validated to prevent SQL injection. The library rejects fragments containing:
+- SQL comments (`--` or `/* */`)
+- String literals (single or double quotes)
+- SQL keywords (SELECT, FROM, WHERE, etc.)
+- Function calls or complex expressions
+- Empty column names
+
+Validation occurs at query execution time and returns `Left(AshtrayError.TemporalSchemaError._)` on detection of suspicious patterns.
 
 #### Repository derivation
 

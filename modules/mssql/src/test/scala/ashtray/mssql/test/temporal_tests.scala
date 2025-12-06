@@ -298,4 +298,154 @@ class TemporalTests extends FunSuite:
     assertEquals(current.entity, emp)
   }
 
+  // === TemporalSchema.columnNames validation tests ===
+
+  test("columnNames extracts simple comma-separated list") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"Col1, Col2, Col3"
+    )
+    assertEquals(schema.columnNames, Right(List("Col1", "Col2", "Col3")))
+  }
+
+  test("columnNames handles columns with no spaces") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"Col1,Col2,Col3"
+    )
+    assertEquals(schema.columnNames, Right(List("Col1", "Col2", "Col3")))
+  }
+
+  test("columnNames handles qualified column names") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"t.Col1, t.Col2, t.Col3"
+    )
+    assertEquals(schema.columnNames, Right(List("t.Col1", "t.Col2", "t.Col3")))
+  }
+
+  test("columnNames rejects SQL line comments") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"Col1, Col2 -- comment, Col3"
+    )
+    schema.columnNames match
+      case Left(TemporalSchemaError.SqlComment(_)) => // expected
+      case other                                   => fail(s"Expected Left(SqlComment), got: $other")
+  }
+
+  test("columnNames rejects SQL block comments") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"Col1, /* comment */ Col2, Col3"
+    )
+    schema.columnNames match
+      case Left(TemporalSchemaError.SqlComment(_)) => // expected
+      case other                                   => fail(s"Expected Left(SqlComment), got: $other")
+  }
+
+  test("columnNames rejects string literals with single quotes") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"Col1, 'literal', Col3"
+    )
+    schema.columnNames match
+      case Left(TemporalSchemaError.StringLiteral(_)) => // expected
+      case other                                      => fail(s"Expected Left(StringLiteral), got: $other")
+  }
+
+  test("columnNames rejects string literals with double quotes") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = Fragment.const("Col1, \"literal\", Col3")
+    )
+    schema.columnNames match
+      case Left(TemporalSchemaError.StringLiteral(_)) => // expected
+      case other                                      => fail(s"Expected Left(StringLiteral), got: $other")
+  }
+
+  test("columnNames rejects SELECT keywords") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"SELECT Col1, Col2"
+    )
+    schema.columnNames match
+      case Left(TemporalSchemaError.ComplexExpression(_, _)) => // expected
+      case other                                             => fail(s"Expected Left(ComplexExpression), got: $other")
+  }
+
+  test("columnNames rejects FROM keywords") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"FROM dbo.Table"
+    )
+    schema.columnNames match
+      case Left(TemporalSchemaError.ComplexExpression(_, _)) => // expected
+      case other                                             => fail(s"Expected Left(ComplexExpression), got: $other")
+  }
+
+  test("columnNames rejects function calls with parentheses") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"Col1, UPPER(Col2), Col3"
+    )
+    schema.columnNames match
+      case Left(TemporalSchemaError.ComplexExpression(_, _)) => // expected
+      case other                                             => fail(s"Expected Left(ComplexExpression), got: $other")
+  }
+
+  test("columnNames rejects empty column names") {
+    val schema = TemporalSchema[Long, Employee](
+      table = "dbo.Test",
+      history = "dbo.TestHistory",
+      id = "ID",
+      validFrom = "ValidFrom",
+      validTo = "ValidTo",
+      cols = fr"Col1, , Col3"
+    )
+    schema.columnNames match
+      case Left(TemporalSchemaError.EmptyColumnName(_)) => // expected
+      case other                                        => fail(s"Expected Left(EmptyColumnName), got: $other")
+  }
+
 end TemporalTests
