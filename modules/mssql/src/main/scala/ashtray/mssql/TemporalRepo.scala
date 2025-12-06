@@ -362,12 +362,22 @@ object TemporalRepo:
     def restoreTo(id: ID, instant: Instant): F[Int] =
       asOf(id, instant).flatMap {
         case Some(historical) =>
-          (Fragment.const(s"UPDATE ${schema.tableName} SET ") ++
-            Fragment.const(
-              schema.columns.toString.split(",").map(_.trim).map(col => s"$col = ?").mkString(", ")
-            ) ++ // This is a simplified approach
-            Fragment.const(s" WHERE ${schema.idColumn} = ") ++ fr"$id").update.run
-            .transact(xa)
+          // Extract column names from schema.columns Fragment
+          // This works for simple column lists like "Col1, Col2, Col3"
+          val columnNames = schema.columns.internals.sql.split(",").map(_.trim).toList
+
+          // Generate SET clause: "col1 = ?, col2 = ?, ..."
+          val setClause = columnNames.map(col => s"$col = ?").mkString(", ")
+
+          // Use Write[A].toFragment to properly bind entity values
+          val entityFragment = summon[Write[A]].toFragment(historical.entity, setClause)
+
+          // Construct complete UPDATE statement
+          val updateQuery = Fragment.const(s"UPDATE ${schema.tableName} SET ") ++
+            entityFragment ++
+            Fragment.const(s" WHERE ${schema.idColumn} = ") ++ fr"$id"
+
+          updateQuery.update.run.transact(xa)
         case None => F.pure(0)
       }
 
